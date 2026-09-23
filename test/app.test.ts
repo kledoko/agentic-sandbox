@@ -64,4 +64,36 @@ describe("runs api", () => {
     expect(res.status).toBe(400);
     expect(res.body.details).toHaveLength(3);
   });
+
+  it("transitions a run from planned to running", async () => {
+    const created = await request(app)
+      .post("/api/runs")
+      .send({ vehicleId: "WVW-7777", cycle: "WLTC", co2GramsPerKm: 88.1 });
+    const id = created.body.id;
+
+    const res = await request(app).patch(`/api/runs/${id}/status`).send({ status: "running" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id, status: "running" });
+
+    const doneRes = await request(app).patch(`/api/runs/${id}/status`).send({ status: "done" });
+    expect(doneRes.status).toBe(200);
+    expect(doneRes.body).toMatchObject({ id, status: "done" });
+  });
+
+  it("rejects an invalid transition with 409 and from/to", async () => {
+    const created = await request(app)
+      .post("/api/runs")
+      .send({ vehicleId: "WVW-7777", cycle: "WLTC", co2GramsPerKm: 88.1 });
+    const id = created.body.id;
+
+    const res = await request(app).patch(`/api/runs/${id}/status`).send({ status: "done" });
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ error: "invalid transition", from: "planned", to: "done" });
+  });
+
+  it("returns 404 when updating status of an unknown run", async () => {
+    const res = await request(app).patch("/api/runs/run-9999/status").send({ status: "running" });
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: "run not found", id: "run-9999" });
+  });
 });

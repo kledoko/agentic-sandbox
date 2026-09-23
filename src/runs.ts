@@ -46,6 +46,27 @@ export function validateNewRun(input: unknown): NewRun {
   };
 }
 
+const STATUSES: RunStatus[] = ["planned", "running", "done"];
+
+export function validateStatusUpdate(input: unknown): RunStatus {
+  const body = (input ?? {}) as Record<string, unknown>;
+  if (!STATUSES.includes(body.status as RunStatus)) {
+    throw new ValidationError([`status must be one of ${STATUSES.join("|")}`]);
+  }
+  return body.status as RunStatus;
+}
+
+const ALLOWED_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
+  planned: ["running"],
+  running: ["done"],
+  done: [],
+};
+
+export type StatusUpdateOutcome =
+  | { outcome: "updated"; run: MeasurementRun }
+  | { outcome: "not-found" }
+  | { outcome: "invalid-transition"; from: RunStatus; to: RunStatus };
+
 export class RunStore {
   private readonly runs = new Map<string, MeasurementRun>();
   private seq = 0;
@@ -73,6 +94,17 @@ export class RunStore {
     };
     this.runs.set(run.id, run);
     return run;
+  }
+
+  updateStatus(id: string, to: RunStatus): StatusUpdateOutcome {
+    const run = this.runs.get(id);
+    if (!run) return { outcome: "not-found" };
+    const from = run.status;
+    if (!ALLOWED_TRANSITIONS[from].includes(to)) {
+      return { outcome: "invalid-transition", from, to };
+    }
+    run.status = to;
+    return { outcome: "updated", run };
   }
 }
 
