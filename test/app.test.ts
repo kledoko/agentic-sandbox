@@ -64,4 +64,35 @@ describe("runs api", () => {
     expect(res.status).toBe(400);
     expect(res.body.details).toHaveLength(3);
   });
+
+  it("deletes a run and removes it from the list", async () => {
+    const created = await request(app)
+      .post("/api/runs")
+      .send({ vehicleId: "WVW-7777", cycle: "WLTC", co2GramsPerKm: 88.1 });
+    const id = created.body.id;
+
+    const del = await request(app).delete(`/api/runs/${id}`);
+    expect(del.status).toBe(204);
+
+    const list = await request(app).get("/api/runs");
+    expect(list.body.find((r: { id: string }) => r.id === id)).toBeUndefined();
+  });
+
+  it("returns 404 when deleting an unknown run", async () => {
+    const res = await request(app).delete("/api/runs/run-9999");
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: "run not found", id: "run-9999" });
+  });
+
+  it("returns 409 when deleting a run that is running", async () => {
+    const runningStore = new RunStore([
+      { vehicleId: "WVW-7777", cycle: "WLTC", co2GramsPerKm: 88.1, status: "running" },
+    ]);
+    const runningApp = createApp({ config: loadConfig({ PORT: "0" }), store: runningStore });
+    const [run] = runningStore.list();
+
+    const res = await request(runningApp).delete(`/api/runs/${run.id}`);
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ error: "run is in progress" });
+  });
 });

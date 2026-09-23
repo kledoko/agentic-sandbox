@@ -47,6 +47,7 @@ npm run e2e          # browser tests, server must be running, browser installed 
 | `GET /api/runs` | all runs; `?vehicleId=` filters | |
 | `GET /api/runs/:id` | one run | 404 `{ error: "run not found", id }` |
 | `POST /api/runs` | 201 with the created run | 400 `{ error, details: string[] }` |
+| `DELETE /api/runs/:id` | 204, run removed | 404 `{ error: "run not found", id }`; 409 `{ error: "run is in progress" }` if status is `running` |
 
 Errors are JSON with an `error` field. Validation errors add `details`; other errors may add context fields such as `id`.
 

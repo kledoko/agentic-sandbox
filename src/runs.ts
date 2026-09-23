@@ -14,7 +14,12 @@ export interface NewRun {
   vehicleId: string;
   cycle: Cycle;
   co2GramsPerKm: number;
+  // Optional: only honored when seeding a RunStore directly (e.g. in tests). POST /api/runs
+  // always creates runs as "planned" since validateNewRun never returns a status.
+  status?: RunStatus;
 }
+
+export type DeleteOutcome = "deleted" | "not-found" | "in-progress";
 
 export class ValidationError extends Error {
   constructor(public readonly details: string[]) {
@@ -68,11 +73,19 @@ export class RunStore {
     const run: MeasurementRun = {
       id: `run-${String(this.seq).padStart(4, "0")}`,
       ...input,
-      status: "planned",
+      status: input.status ?? "planned",
       createdAt: new Date().toISOString(),
     };
     this.runs.set(run.id, run);
     return run;
+  }
+
+  delete(id: string): DeleteOutcome {
+    const run = this.runs.get(id);
+    if (!run) return "not-found";
+    if (run.status === "running") return "in-progress";
+    this.runs.delete(id);
+    return "deleted";
   }
 }
 
